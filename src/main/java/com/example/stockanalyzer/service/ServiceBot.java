@@ -5,18 +5,18 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
-import org.telegram.telegrambots.meta.api.methods.ParseMode;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
-import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeDefault;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 
 
 import java.util.ArrayList;
@@ -63,95 +63,58 @@ public class ServiceBot extends TelegramLongPollingBot {
     @Override
     public void onUpdateReceived(Update update) {
         if (update.hasMessage() && update.getMessage().hasText()) {
-            long chatId = update.getMessage().getChatId();
-            startCommandReceived(chatId, update.getMessage().getChat().getFirstName());
-            SendMessage message = new SendMessage();
-            message.setChatId(update.getMessage().getChatId());
-            message.setText("Выберите акцию:");
+            String message_text = update.getMessage().getText();
+            long chat_id = update.getMessage().getChatId();
+            if (message_text.equals("/start")) {
+                SendMessage message = new SendMessage(); // Create a message object
+                message.setChatId(chat_id);
+                message.setText("Хотите ли вы добавить свое имя в предложение?");
 
-            InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
+                ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                List<KeyboardRow> keyboard = new ArrayList<>();
+                KeyboardRow row = new KeyboardRow();
 
-            List<InlineKeyboardButton> keyboardButtonsRow1 = new ArrayList<>();
-            InlineKeyboardButton button1 = new InlineKeyboardButton();
-            button1.setText("Apple");
-            button1.setCallbackData("1");
-
-            InlineKeyboardButton button2 = new InlineKeyboardButton();
-            button2.setText("Tesla Motors");
-            button2.setCallbackData("2");
-
-            keyboardButtonsRow1.add(button1);
-            keyboardButtonsRow1.add(button2);
-
-            List<List<InlineKeyboardButton>> keyboardButtons = new ArrayList<>();
-            keyboardButtons.add(keyboardButtonsRow1);
-
-            keyboardMarkup.setKeyboard(keyboardButtons);
-
-            message.setReplyMarkup(keyboardMarkup);
-
-            try {
-                execute(message);
-            } catch (TelegramApiException e) {
-                e.printStackTrace();
-            }
-        } else if (update.hasCallbackQuery()) {
-            if (update.hasCallbackQuery()) {
-                String callbackData = update.getCallbackQuery().getData();
-                long chatId = update.getCallbackQuery().getMessage().getChatId();
-
-                String messageText;
-
-                switch (callbackData) {
-                    case "1":
-                        messageText = "You chose Option 1 " + stockService.getStockByTicker("BBG000B9XRY4");
-                        sendMessage(chatId, messageText);
-                        Update update1 = new Update();
-                        Message message = update1.getMessage();
-
-                        InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
-
-                        List<InlineKeyboardButton> keyboardButtonsRow1 = new ArrayList<>();
-                        InlineKeyboardButton button1 = new InlineKeyboardButton();
-                        button1.setText("Apple");
-                        button1.setCallbackData("1");
-
-                        InlineKeyboardButton button2 = new InlineKeyboardButton();
-                        button2.setText("Tesla Motors");
-                        button2.setCallbackData("2");
-
-                        keyboardButtonsRow1.add(button1);
-                        keyboardButtonsRow1.add(button2);
-
-                        List<List<InlineKeyboardButton>> keyboardButtons = new ArrayList<>();
-                        keyboardButtons.add(keyboardButtonsRow1);
-
-                        keyboardMarkup.setKeyboard(keyboardButtons);
-
-                        message.setReplyMarkup(keyboardMarkup);
-
-                        break;
-                    case "2":
-                        messageText = "You chose Option 2 " + stockService.getStockByTicker("BBG000N9MNX3");
-                        break;
-                    default:
-                        messageText = "You chose Option 1";
-                        break;
-                }
-
-                SendMessage answerMessage = new SendMessage();
-                answerMessage.setChatId(chatId);
-                answerMessage.setText(messageText);
-
+                row.add(new KeyboardButton("Да"));
+                row.add(new KeyboardButton("Нет"));
+                keyboard.add(row);
+                keyboardMarkup.setKeyboard(keyboard);
+                message.setReplyMarkup(keyboardMarkup);
                 try {
-                    execute(answerMessage);
+                    execute(message); // Sending our message object to user
+                } catch (TelegramApiException e) {
+                    e.printStackTrace();
+                }
+            } else if (message_text.equals("Да")) {
+                SendMessage message = new SendMessage(); // Create a message object
+                message.setChatId(chat_id);
+                message.setText("Как вас зовут?");
+                try {
+                    execute(message); // Sending our message object to user
+                } catch (TelegramApiException e) {
+                    e.printStackTrace();
+                }
+            } else if (message_text.equals("Нет")) {
+                SendMessage message = new SendMessage(); // Create a message object
+                message.setChatId(chat_id);
+                message.setText("Хорошо, я не буду добавлять ваше имя в предложение.");
+                try {
+                    execute(message); // Sending our message object to user
+                } catch (TelegramApiException e) {
+                    e.printStackTrace();
+                }
+            } else {
+                String name = message_text;
+                SendMessage message = new SendMessage(); // Create a message object
+                message.setChatId(chat_id);
+                message.setText("Привет, " + name + "! Как дела?");
+                try {
+                    execute(message); // Sending our message object to user
                 } catch (TelegramApiException e) {
                     e.printStackTrace();
                 }
             }
         }
     }
-
 
 
     private void startCommandReceived(long chatId, String firstName) {
