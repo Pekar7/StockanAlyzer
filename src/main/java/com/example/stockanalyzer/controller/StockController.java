@@ -8,7 +8,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import ru.tinkoff.piapi.contract.v1.HistoricCandle;
 
 import java.util.List;
 
@@ -31,7 +30,13 @@ public class StockController {
 
     @Operation(summary = "Get Stock Information by Ticker", tags = "Ticker")
     @GetMapping("getCandle/{figi}")
-    public List<Candle> getCandleStock(@PathVariable String figi) throws Exception {
+    public List<Candle> getCandleStock(@PathVariable String figi) {
         return stockService.getCandleByFigi(figi);
+    }
+
+    @Operation(summary = "Get Stock Information by Ticker", tags = "Ticker")
+    @GetMapping("getCandleBrown/{figi}")
+    public Double getCandleBrown() {
+        return stockService.getAnalysisBrown();
     }
 }
