@@ -70,23 +70,27 @@ public class TelegramController extends TelegramLongPollingBot {
             Message message = callbackQuery.getMessage();
             switch (callbackData) {
                 case "BBG000B9XRY4": //apple
-                    String appleNews = "https://content.guardianapis.com/search?q=Apple%20Inc&section=technology&page-size=20&api-key=";
+//                    String appleNewsGuardian = "https://content.guardianapis.com/search?q=Apple%20Inc&section=technology&page-size=20&api-key=";
+                    String appleNews = "Apple";
                     getInfoFigi(message.getChatId(), "BBG000B9XRY4", appleNews);
                     getBrownModel(message.getChatId(), "BBG000B9XRY4");
                     break;
                 case "BBG000BVPV84": //amazon
-                    String amazon = "https://content.guardianapis.com/search?q=Amazon%20AND%20company&page-size=20&api-key=";
-                    getInfoFigi(message.getChatId(), "BBG000BVPV84", amazon);
+//                    String amazonGuardian = "https://content.guardianapis.com/search?q=Amazon%20AND%20company&page-size=20&api-key=";
+                    String amazonNews = "Amazon";
+                    getInfoFigi(message.getChatId(), "BBG000BVPV84", amazonNews);
                     getBrownModel(message.getChatId(), "BBG000BVPV84");
                     break;
                 case "BBG000N9MNX3": //tesla
-                    String teslaNews = "https://content.guardianapis.com/search?q=Tesla%20motors&page-size=20&api-key=";
+//                    String teslaNewsGuardian = "https://content.guardianapis.com/search?q=Tesla%20motors&page-size=20&api-key=";
+                    String teslaNews = "Tesla";
                     getInfoFigi(message.getChatId(), "BBG000N9MNX3", teslaNews);
                     getBrownModel(message.getChatId(), "BBG000N9MNX3");
                     break;
                 case "BBG000BPH459": //microsoft
-                    String microsoft = "https://content.guardianapis.com/search?q=Microsoft%20&page-size=20&api-key=";
-                    getInfoFigi(message.getChatId(), "BBG000BPH459", microsoft);
+//                    String microsoftGuardian = "https://content.guardianapis.com/search?q=Microsoft%20&page-size=20&api-key=";
+                    String microsoftNews = "Microsoft";
+                    getInfoFigi(message.getChatId(), "BBG000BPH459", microsoftNews);
                     getBrownModel(message.getChatId(), "BBG000BPH459");
                     break;
             }
@@ -96,7 +100,8 @@ public class TelegramController extends TelegramLongPollingBot {
     @SneakyThrows
     private void getInfoFigi(long chatId, String figi, String url) {
         String message = stockService.getStockByTicker(figi);
-        String news = stockService.getNews(url);
+//        String news = stockService.getNewsFromGuardian(url);
+        String news = stockService.getNewsFromGoogle(url);
         sendTextMessage(chatId, message+"\n"+news);
     }
 

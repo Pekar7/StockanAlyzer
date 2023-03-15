@@ -1,0 +1,13 @@
+@relation hamspam
+
+@attribute text string
+@attribute class {spam,ham}
+
+@data
+'Congratulation you are selected',ham
+'Congrats you won lottery',spam
+'travel for free',spam
+'selected for credit cards',spam
+'very Good',ham
+'Good night',ham
+'lottery',spam

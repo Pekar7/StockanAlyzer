@@ -11,5 +11,6 @@ public interface StockService {
     Double getPriceStock(String figi);
     List<Candle> getCandleByFigi(String figi);
     Double getAnalysisBrown();
-    String getNews(String newUrl) throws IOException;
+    String getNewsFromGuardian(String newUrl) throws IOException;
+    String getNewsFromGoogle(String newUrl) throws IOException;
 }

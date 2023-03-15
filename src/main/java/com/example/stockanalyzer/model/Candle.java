@@ -9,9 +9,10 @@ import lombok.Value;
 @AllArgsConstructor
 @Value
 public class Candle {
+    String simpleDateFormat;
+    Double close;
+    Long value;
     Double open;
     Double high;
     Double low;
-    Double close;
-    String simpleDateFormat;
 }

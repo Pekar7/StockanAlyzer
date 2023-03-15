@@ -1,12 +1,14 @@
 package com.example.stockanalyzer.service;
 
 import com.example.stockanalyzer.model.Candle;
+import com.example.stockanalyzer.model.NewsArticle;
 import com.opencsv.CSVReader;
 import com.opencsv.CSVWriter;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import ru.tinkoff.piapi.contract.v1.*;
 import ru.tinkoff.piapi.core.InvestApi;
@@ -14,11 +16,12 @@ import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
 @Service
@@ -53,7 +56,7 @@ public class StockServiceImpl implements StockService {
     @Override
     public List<Candle> getCandleByFigi(String figi) {
         Instant now = Instant.now();
-        LocalDateTime fiveMonthsAgo = LocalDateTime.now().minusMonths(24);
+        LocalDateTime fiveMonthsAgo = LocalDateTime.now().minusYears(1);
         Instant instantFiveMonthsAgo = fiveMonthsAgo.atZone(ZoneId.systemDefault()).toInstant();
         List<HistoricCandle> historicCandleList = api.getMarketDataService().getCandles(figi, instantFiveMonthsAgo, now, CandleInterval.CANDLE_INTERVAL_MONTH).join(); //месяц
 
@@ -61,19 +64,25 @@ public class StockServiceImpl implements StockService {
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
         for (int i = 0; i < historicCandleList.size(); i++) {
             candles.add(
-                    new Candle(historicCandleList.get(i).getClose().getUnits() + historicCandleList.get(i).getClose().getNano() / Math.pow(10, 9),
-                            historicCandleList.get(i).getHigh().getUnits() + historicCandleList.get(i).getHigh().getNano() / Math.pow(10, 9),
-                            historicCandleList.get(i).getLow().getUnits() + historicCandleList.get(i).getLow().getNano() / Math.pow(10, 9),
+                    new Candle(
+                            simpleDateFormat.format(new Date(historicCandleList.get(i).getTime().getSeconds() * 1000)),
                             historicCandleList.get(i).getClose().getUnits() + historicCandleList.get(i).getClose().getNano() / Math.pow(10, 9),
-                            simpleDateFormat.format(new Date(historicCandleList.get(i).getTime().getSeconds() * 1000))
+                            historicCandleList.get(i).getVolume(),
+                            historicCandleList.get(i).getOpen().getUnits() + historicCandleList.get(i).getClose().getNano() / Math.pow(10, 9),
+                            historicCandleList.get(i).getHigh().getUnits() + historicCandleList.get(i).getHigh().getNano() / Math.pow(10, 9),
+                            historicCandleList.get(i).getLow().getUnits() + historicCandleList.get(i).getLow().getNano() / Math.pow(10, 9)
                     ));
         }
 
         List<String[]> data = new ArrayList<String[]>();
         for (int i = 0; i < candles.size(); i++) {
             data.add(new String[]{
+                    String.valueOf(candles.get(i).getSimpleDateFormat()),
                     String.valueOf(candles.get(i).getClose()),
-                    String.valueOf(candles.get(i).getSimpleDateFormat())
+                    String.valueOf(candles.get(i).getValue()),
+                    String.valueOf(candles.get(i).getOpen()),
+                    String.valueOf(candles.get(i).getHigh()),
+                    String.valueOf(candles.get(i).getLow()),
             });
         }
         File file = new File("src/main/resources/data/candle.csv");
@@ -103,10 +112,10 @@ public class StockServiceImpl implements StockService {
             String[] line;
 
             while ((line = reader.readNext()) != null) {
-                double value = Double.parseDouble(line[0]);
-                values.add(value);
-                Date date = dateFormat.parse(line[1]);
+                Date date = dateFormat.parse(line[0]);
                 dates.add(date);
+                double value = Double.parseDouble(line[1]);
+                values.add(value);
 //                System.out.println(line[0] + " " + line[1]);
             }
 
@@ -163,8 +172,9 @@ public class StockServiceImpl implements StockService {
     }
 
 
+    //The Guardian
     @Override
-    public String getNews(String newUrl) throws IOException {
+    public String getNewsFromGuardian(String newUrl) throws IOException {
         URL obj = new URL(newUrl + apiKey);
         InputStream is = obj.openConnection().getInputStream();
 
@@ -209,7 +219,71 @@ public class StockServiceImpl implements StockService {
             System.out.println("Ошибка записи данных: " + e.getMessage());
         }
 
-        String[] newestNews = data.get(results.length()-1);
+        String[] newestNews = data.get(results.length() - 1);
         return "Свежая новость: \nДата: \n" + newestNews[0] + "\nНовость: \n" + newestNews[1] + "\nСсылка на новость: \n" + newestNews[2];
+    }
+
+
+    @Override
+    public String getNewsFromGoogle(String companyName) throws IOException {
+        String apiKey = "a776234139b642f2af8f611731f96073";
+        String urlStr = "https://newsapi.org/v2/everything?q=" + companyName + "%20&apiKey=" + apiKey;
+
+        URL url = new URL(urlStr);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        conn.connect();
+        int responseCode = conn.getResponseCode();
+
+        List<String[]> data = new ArrayList<String[]>();
+
+        if (responseCode != 200) {
+            throw new RuntimeException("HttpResponseCode: " + responseCode);
+        } else {
+            String jsonString = "";
+            Scanner scanner = new Scanner(url.openStream());
+            while (scanner.hasNext()) {
+                jsonString += scanner.nextLine();
+            }
+            scanner.close();
+            JSONObject jsonObj = new JSONObject(jsonString);
+            JSONArray jsonArray = jsonObj.getJSONArray("articles");
+
+            List<NewsArticle> newsList = new ArrayList<>();
+            for (int i = 0; i < jsonArray.length(); i++) {
+                JSONObject articleObj = jsonArray.getJSONObject(i);
+                String title = articleObj.getString("title");
+                String description = articleObj.getString("description");
+                String urlNews = articleObj.getString("url");
+                String date = articleObj.getString("publishedAt").substring(0, 10);
+
+                Pattern pattern = Pattern.compile("\\b"+companyName+"\\b");
+                Matcher matcher = pattern.matcher(title);
+                Matcher matcher2 = pattern.matcher(description);
+
+
+                if (matcher.find() || matcher2.find()) {
+                    newsList.add(new NewsArticle(title, description, date, urlNews));
+                    String[] news = new String[]{date, title, description, urlNews};
+                    data.add(news);
+                } else {
+                    System.out.println("Текст не содержит слово Компании.");
+                }
+            }
+
+            Collections.sort(newsList, (o1, o2) -> o2.date.compareTo(o1.date)); //сортировка новостей по дате
+
+            try {
+                CSVWriter writer = new CSVWriter(new FileWriter("src/main/resources/data/newsGoogle.csv"));
+                for (String[] news : data) {
+                    writer.writeNext(news);
+                }
+                writer.close();
+            } catch (Exception e) {
+                System.out.println("Ошибка записи данных: " + e.getMessage());
+            }
+        }
+        String[] newestNews = data.get(0);
+        return "Свежая новость: \nДата: \n" + newestNews[0] + "\nНовость: \n" + newestNews[1] + "\nСсылка на новость: \n" + newestNews[3];
     }
 }

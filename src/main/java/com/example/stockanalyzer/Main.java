@@ -1,33 +1,5 @@
 package com.example.stockanalyzer;
 
-import com.opencsv.CSVReader;
-import com.opencsv.CSVWriter;
-import com.opencsv.exceptions.CsvValidationException;
-import org.json.JSONArray;
-import org.json.JSONObject;
-import ru.tinkoff.piapi.contract.v1.*;
-import ru.tinkoff.piapi.core.InvestApi;
-
-import java.io.*;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.HttpURLConnection;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.text.DateFormat;
-import java.text.ParseException;
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.time.*;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
-import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
 //        var instrumentFigi = "BBG000N9MNX3";
 //
@@ -121,67 +93,48 @@ import java.util.stream.Collectors;
 //        double nextForecast = alpha * values.get(values.size()-1) + (1 - alpha) * forecasts[forecasts.length-1];
 //        System.out.println("Next forecast: " + formattedTomorrow + " " + nextForecast);
 //
+//
+//
+//public class Main {
+//    public static void main(String[] args) {
+//        CSVReader reader;
+//
+//        List<Date> dat2es = new ArrayList<>();
+//        List<Double> prices = new ArrayList<>();
+//        String csvFile = "src/main/resources/data/candle.csv";
+//        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+//        try {
+//            reader = new CSVReader(new FileReader(csvFile));
+//            String[] line;
+//
+//            while ((line = reader.readNext()) != null) {
+//                double value = Double.parseDouble(line[0]);
+//                prices.add(value);
+//                Date date = dateFormat.parse(line[1]);
+//                dates.add(date);
+////                System.out.println(line[0] + " " + line[1]);
+//            }
+//
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//
+//        SimpleRegression regression = new SimpleRegression();
+//        for (int i = 0; i < prices.size(); i++) {
+//            regression.addData(i + 1, prices.get(i));
+//        }
+//
+//        // print regression parameters
+//        System.out.println("Slope: " + regression.getSlope());
+//        System.out.println("Intercept: " + regression.getIntercept());
+//        System.out.println("R-squared: " + regression.getRSquare());
+//
+//        // predict price for next month
+//        double nextMonthPrice = regression.predict(prices.size() + 1);
+//        System.out.println("Predicted price for next month: " + nextMonthPrice);
+//    }
+//}
 
-
-public class Main {
-    public static void main(String[] args) throws IOException {
-        String urlToRead = "https://content.guardianapis.com/search?q=Microsoft%20&page-size=20&api-key=f50e5516-d276-4a30-9515-55bf5a10b4ca";
-
-        URL obj = new URL(urlToRead);
-        InputStream is = obj.openConnection().getInputStream();
-
-        // Читаем JSON-ответ от The Guardian
-        String jsonText = new String(is.readAllBytes(), StandardCharsets.UTF_8);
-        JSONObject json = new JSONObject(jsonText);
-        JSONArray results = json.getJSONObject("response").getJSONArray("results");
-
-        // Создаем компаратор для сравнения дат
-        Comparator<String[]> dateComparator = new Comparator<String[]>() {
-            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
-
-            public int compare(String[] s1, String[] s2) {
-                try {
-                    Date date1 = format.parse(s1[0]);
-                    Date date2 = format.parse(s2[0]);
-                    return date1.compareTo(date2);
-                } catch (Exception e) {
-                    throw new IllegalArgumentException("Неверный формат даты", e);
-                }
-            }
-        };
-
-        List<String[]> data = new ArrayList<String[]>();
-        for (int i = 0; i < results.length(); i++) {
-            JSONObject result = results.getJSONObject(i);
-            String date = result.getString("webPublicationDate");
-            String title = result.getString("webTitle");
-            String urlLink = result.getString("webUrl");
-            String[] news = new String[]{date, title, urlLink};
-            data.add(news);
-        }
-
-        for (String[] strings : data) {
-            System.out.println(strings[0] + " " + strings[1] + " " + strings[2]);
-        }
-
-        Collections.sort(data, dateComparator);
-        try {
-            CSVWriter writer = new CSVWriter(new FileWriter("src/main/resources/data/news.csv"));
-            for (String[] news : data) {
-                writer.writeNext(news);
-            }
-            writer.close();
-        } catch (Exception e) {
-            System.out.println("Ошибка записи данных: " + e.getMessage());
-        }
-
-        String[] newestNews = data.get(results.length()-1);
-        System.out.println("Свежая новость: \nДата: \n" + newestNews[0] + "\nНовость: \n" + newestNews[1] + "\nСсылка на новость: \n" + newestNews[2]);
-    }
-
-
-
-}
 
 // TSLA ->  BBG000N9MNX3
 // AAPL -> BBG000B9XRY4
