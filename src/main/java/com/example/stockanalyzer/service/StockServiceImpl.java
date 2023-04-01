@@ -8,7 +8,6 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import ru.tinkoff.piapi.contract.v1.*;
 import ru.tinkoff.piapi.core.InvestApi;
@@ -22,13 +21,18 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 
 @Service
 public class StockServiceImpl implements StockService {
 
+    private static final long CANDLE_PERIOD = 6;
     @Value("${news.token}")
     String apiKey;
+
+    @Value("${news.tokenGoogle}")
+    String apiKeyGoogle;
 
     private final InvestApi api;
 
@@ -56,9 +60,9 @@ public class StockServiceImpl implements StockService {
     @Override
     public List<Candle> getCandleByFigi(String figi) {
         Instant now = Instant.now();
-        LocalDateTime fiveMonthsAgo = LocalDateTime.now().minusYears(1);
+        LocalDateTime fiveMonthsAgo = LocalDateTime.now().minusMonths(CANDLE_PERIOD);
         Instant instantFiveMonthsAgo = fiveMonthsAgo.atZone(ZoneId.systemDefault()).toInstant();
-        List<HistoricCandle> historicCandleList = api.getMarketDataService().getCandles(figi, instantFiveMonthsAgo, now, CandleInterval.CANDLE_INTERVAL_MONTH).join(); //месяц
+        List<HistoricCandle> historicCandleList = api.getMarketDataService().getCandles(figi, instantFiveMonthsAgo, now, CandleInterval.CANDLE_INTERVAL_DAY).join(); //месяц
 
         List<Candle> candles = new ArrayList();
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
@@ -226,8 +230,7 @@ public class StockServiceImpl implements StockService {
 
     @Override
     public String getNewsFromGoogle(String companyName) throws IOException {
-        String apiKey = "a776234139b642f2af8f611731f96073";
-        String urlStr = "https://newsapi.org/v2/everything?q=" + companyName + "%20&apiKey=" + apiKey;
+        String urlStr = "https://newsapi.org/v2/everything?q=" + companyName + "%20&apiKey=" + apiKeyGoogle;
 
         URL url = new URL(urlStr);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -255,7 +258,8 @@ public class StockServiceImpl implements StockService {
                 String title = articleObj.getString("title");
                 String description = articleObj.getString("description");
                 String urlNews = articleObj.getString("url");
-                String date = articleObj.getString("publishedAt").substring(0, 10);
+                String dateStr = articleObj.getString("publishedAt").substring(0, 10);
+                LocalDate date = LocalDate.parse(dateStr);
 
                 Pattern pattern = Pattern.compile("\\b"+companyName+"\\b");
                 Matcher matcher = pattern.matcher(title);
@@ -264,14 +268,33 @@ public class StockServiceImpl implements StockService {
 
                 if (matcher.find() || matcher2.find()) {
                     newsList.add(new NewsArticle(title, description, date, urlNews));
-                    String[] news = new String[]{date, title, description, urlNews};
-                    data.add(news);
                 } else {
                     System.out.println("Текст не содержит слово Компании.");
                 }
             }
 
-            Collections.sort(newsList, (o1, o2) -> o2.date.compareTo(o1.date)); //сортировка новостей по дате
+            Map<LocalDate, List<String>> articlesByDate = new HashMap<>();
+            for (NewsArticle article : newsList) {
+                articlesByDate.computeIfAbsent(article.getDate(), k -> new ArrayList<>()).add(article.getTitle());
+            }
+
+            List<NewsArticle> sortedArticles = new ArrayList<>();
+            for (Map.Entry<LocalDate, List<String>> entry : articlesByDate.entrySet()) {
+                LocalDate date = entry.getKey();
+                List<String> titles = entry.getValue();
+                String title = String.join(", ", titles);
+                NewsArticle article = new NewsArticle();
+                article.setDate(date);
+                article.setTitle(title);
+                sortedArticles.add(article);
+            }
+
+            sortedArticles.sort(Comparator.comparing(NewsArticle::getDate).reversed());
+
+            for (int i = 0; i < sortedArticles.size(); i++) {
+                String[] news = new String[]{String.valueOf(sortedArticles.get(i).getDate()), sortedArticles.get(i).getTitle(), sortedArticles.get(i).getDescription(), sortedArticles.get(i).getUrlNews()};
+                data.add(news);
+            }
 
             try {
                 CSVWriter writer = new CSVWriter(new FileWriter("src/main/resources/data/newsGoogle.csv"));
@@ -283,7 +306,10 @@ public class StockServiceImpl implements StockService {
                 System.out.println("Ошибка записи данных: " + e.getMessage());
             }
         }
-        String[] newestNews = data.get(0);
-        return "Свежая новость: \nДата: \n" + newestNews[0] + "\nНовость: \n" + newestNews[1] + "\nСсылка на новость: \n" + newestNews[3];
+        String[] newestNews = data.get(data.size()-1);
+        return "Свежая новость на:" + newestNews[0] + "\n\nНовость: \n" + newestNews[1] + "\n\nСсылка на новость: \n" + newestNews[3];
     }
+
+
+
 }

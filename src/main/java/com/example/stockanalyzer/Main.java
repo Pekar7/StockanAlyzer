@@ -39,6 +39,16 @@ package com.example.stockanalyzer;
 //        System.out.println(sum);
 
 
+import com.opencsv.CSVReader;
+
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
 //
 //        String csvFile = "src/main/resources/data/candle.csv";
 //        CSVReader reader;
@@ -135,6 +145,59 @@ package com.example.stockanalyzer;
 //    }
 //}
 
+//class Main{
+//    public static void main(String[] args) throws IOException {
+//        // загрузка данных из CSV файла
+//        BufferedReader reader = new BufferedReader(new FileReader("stock_data.csv"));
+//        Instances data = new Instances(reader);
+//        reader.close();
+//
+//        // удаление столбца с датами
+//        data.deleteAttributeAt(0);
+//
+//        // создание признака на основе анализа тональности новостей
+//        int sentimentIndex = data.numAttributes() - 1;
+//        for (int i = 0; i < data.numInstances(); i++) {
+//            double sentiment = Double.parseDouble(data.instance(i).stringValue(sentimentIndex));
+//            if (sentiment >= 0 && sentiment < 1.5) {
+//                data.instance(i).setValue(sentimentIndex, "negative");
+//            } else if (sentiment >= 1.5 && sentiment < 3.5) {
+//                data.instance(i).setValue(sentimentIndex, "neutral");
+//            } else {
+//                data.instance(i).setValue(sentimentIndex, "positive");
+//            }
+//        }
+//
+//        // разделение на тренировочный и тестовый наборы
+//        data.randomize(new Random());
+//        int trainSize = (int) Math.round(data.numInstances() * 0.8);
+//        int testSize = data.numInstances() - trainSize;
+//        Instances trainData = new Instances(data, 0, trainSize);
+//        Instances testData = new Instances(data, trainSize, testSize);
+//
+//        // обучение модели решающих деревьев
+//        trainData.setClassIndex(trainData.numAttributes() - 1);
+//        J48 decisionTree = new J48();
+//        decisionTree.buildClassifier(trainData);
+//
+//        // вывод результатов
+//        System.out.println("Training set size: " + trainData.numInstances());
+//        System.out.println("Test set size: " + testData.numInstances());
+//        System.out.println("Accuracy: " + evaluateClassifier(decisionTree, testData));
+//    }
+//
+//    public static double evaluateClassifier(J48 classifier, Instances testData) throws Exception {
+//        int numCorrect = 0;
+//        for (int i = 0; i < testData.numInstances(); i++) {
+//            double actualClass = testData.instance(i).classValue();
+//            double predictedClass = classifier.classifyInstance(testData.instance(i));
+//            if (actualClass == predictedClass) {
+//                numCorrect++;
+//            }
+//        }
+//        return (double) numCorrect / testData.numInstances();
+//    }
+//}
 
 // TSLA ->  BBG000N9MNX3
 // AAPL -> BBG000B9XRY4
