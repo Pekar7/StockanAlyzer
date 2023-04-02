@@ -34,9 +34,9 @@ public class StockController {
         return stockService.getCandleByFigi(figi);
     }
 
-    @Operation(summary = "Get Stock Information by Ticker", tags = "Ticker")
-    @GetMapping("getCandleBrown/{figi}")
-    public Double getCandleBrown() {
-        return stockService.getAnalysisBrown();
-    }
+//    @Operation(summary = "Get Stock Information by Ticker", tags = "Ticker")
+//    @GetMapping("getCandleBrown/{figi}")
+//    public Double getCandleBrown() {
+//        return stockService.getAnalysisBrown();
+//    }
 }

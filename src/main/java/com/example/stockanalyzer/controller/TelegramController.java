@@ -7,9 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
-import org.telegram.telegrambots.meta.api.methods.ActionType;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
-import org.telegram.telegrambots.meta.api.methods.send.SendChatAction;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Message;
@@ -109,15 +107,15 @@ public class TelegramController extends TelegramLongPollingBot {
 
     private void getBrownModel(long chatId, String figi) {
         stockService.getCandleByFigi(figi);
-        Double priceBrown = stockService.getAnalysisBrown();
-        Double price = stockService.getPriceStock(figi);
-        if (priceBrown > price) {
-            sendTextMessage(chatId, "Модель Брауна прогнозирует рост цены на следующий месяц \u2714");
-        } else if (priceBrown < price) {
-            sendTextMessage(chatId, "Модель Брауна прогнозирует падание цены на следующий месяц \u274C");
-        } else {
-            sendTextMessage(chatId, "Модель Брауна прогнозирует стагнацию цены на следующий месяц");
-        }
+//        Double priceBrown = stockService.getAnalysisBrown();
+//        Double price = stockService.getPriceStock(figi);
+//        if (priceBrown > price) {
+//            sendTextMessage(chatId, "Модель Брауна прогнозирует рост цены на следующий месяц \u2714");
+//        } else if (priceBrown < price) {
+//            sendTextMessage(chatId, "Модель Брауна прогнозирует падание цены на следующий месяц \u274C");
+//        } else {
+//            sendTextMessage(chatId, "Модель Брауна прогнозирует стагнацию цены на следующий месяц");
+//        }
     }
 
     private void sendYesNoKeyboard(Long chatId) {

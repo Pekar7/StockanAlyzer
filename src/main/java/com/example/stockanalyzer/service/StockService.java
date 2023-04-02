@@ -10,7 +10,7 @@ public interface StockService {
     String getStockByTicker(String ticker);
     Double getPriceStock(String figi);
     List<Candle> getCandleByFigi(String figi);
-    Double getAnalysisBrown();
-    String getNewsFromGuardian(String newUrl) throws IOException;
+//    Double getAnalysisBrown();
+//    String getNewsFromGuardian(String newUrl) throws IOException;
     String getNewsFromGoogle(String newUrl) throws IOException;
 }

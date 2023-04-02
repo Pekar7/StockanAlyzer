@@ -2,7 +2,6 @@ package com.example.stockanalyzer.service;
 
 import com.example.stockanalyzer.model.Candle;
 import com.example.stockanalyzer.model.NewsArticle;
-import com.opencsv.CSVReader;
 import com.opencsv.CSVWriter;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -14,14 +13,11 @@ import ru.tinkoff.piapi.core.InvestApi;
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.time.*;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 
 @Service
@@ -103,6 +99,90 @@ public class StockServiceImpl implements StockService {
         return candles;
     }
 
+    //Google News
+    @Override
+    public String getNewsFromGoogle(String companyName) throws IOException {
+        String urlStr = "https://newsapi.org/v2/everything?q=" + companyName + "%20&apiKey=" + apiKeyGoogle;
+
+        URL url = new URL(urlStr);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        conn.connect();
+        int responseCode = conn.getResponseCode();
+
+        List<String[]> data = new ArrayList<String[]>();
+
+        if (responseCode != 200) {
+            throw new RuntimeException("HttpResponseCode: " + responseCode);
+        } else {
+            String jsonString = "";
+            Scanner scanner = new Scanner(url.openStream());
+            while (scanner.hasNext()) {
+                jsonString += scanner.nextLine();
+            }
+            scanner.close();
+            JSONObject jsonObj = new JSONObject(jsonString);
+            JSONArray jsonArray = jsonObj.getJSONArray("articles");
+
+            List<NewsArticle> newsList = new ArrayList<>();
+            for (int i = 0; i < jsonArray.length(); i++) {
+                JSONObject articleObj = jsonArray.getJSONObject(i);
+                String title = articleObj.getString("title");
+                String description = articleObj.getString("description");
+                String urlNews = articleObj.getString("url");
+                String dateStr = articleObj.getString("publishedAt").substring(0, 10);
+                LocalDate date = LocalDate.parse(dateStr);
+
+                Pattern pattern = Pattern.compile("\\b"+companyName+"\\b");
+                Matcher matcher = pattern.matcher(title);
+                Matcher matcher2 = pattern.matcher(description);
+
+
+                if (matcher.find() || matcher2.find()) {
+                    newsList.add(new NewsArticle(title, description, date, urlNews));
+                }
+            }
+
+            Map<LocalDate, List<String>> articlesByDate = new HashMap<>();
+            for (NewsArticle article : newsList) {
+                articlesByDate.computeIfAbsent(article.getDate(), k -> new ArrayList<>()).add(article.getTitle());
+            }
+
+            List<NewsArticle> sortedArticles = new ArrayList<>();
+            for (Map.Entry<LocalDate, List<String>> entry : articlesByDate.entrySet()) {
+                LocalDate date = entry.getKey();
+                List<String> titles = entry.getValue();
+                String title = String.join(", ", titles);
+                NewsArticle article = new NewsArticle();
+                article.setDate(date);
+                article.setTitle(title);
+                sortedArticles.add(article);
+            }
+
+            sortedArticles.sort(Comparator.comparing(NewsArticle::getDate).reversed());
+
+            for (int i = 0; i < sortedArticles.size(); i++) {
+                String[] news = new String[]{String.valueOf(sortedArticles.get(i).getDate()), sortedArticles.get(i).getTitle(), sortedArticles.get(i).getDescription(), sortedArticles.get(i).getUrlNews()};
+                data.add(news);
+            }
+
+            try {
+                CSVWriter writer = new CSVWriter(new FileWriter("src/main/resources/data/newsGoogle.csv"));
+                for (String[] news : data) {
+                    writer.writeNext(news);
+                }
+                writer.close();
+            } catch (Exception e) {
+                System.out.println("Ошибка записи данных: " + e.getMessage());
+            }
+        }
+        String[] newestNews = data.get(data.size()-1);
+        return "Свежая новость на:" + newestNews[0] + "\n\nНовость: \n" + newestNews[1] + "\n\nСсылка на новость: \n" + newestNews[3];
+    }
+
+}
+
+/*
     // Модель Брауна
     @Override
     public Double getAnalysisBrown() {
@@ -175,7 +255,6 @@ public class StockServiceImpl implements StockService {
         return nextForecast;
     }
 
-
     //The Guardian
     @Override
     public String getNewsFromGuardian(String newUrl) throws IOException {
@@ -214,7 +293,7 @@ public class StockServiceImpl implements StockService {
 
         Collections.sort(data, dateComparator);
         try {
-            CSVWriter writer = new CSVWriter(new FileWriter("src/main/resources/data/news.csv"));
+            CSVWriter writer = new CSVWriter(new FileWriter("src/main/resources/data/newsGuardian.csv"));
             for (String[] news : data) {
                 writer.writeNext(news);
             }
@@ -226,90 +305,4 @@ public class StockServiceImpl implements StockService {
         String[] newestNews = data.get(results.length() - 1);
         return "Свежая новость: \nДата: \n" + newestNews[0] + "\nНовость: \n" + newestNews[1] + "\nСсылка на новость: \n" + newestNews[2];
     }
-
-
-    @Override
-    public String getNewsFromGoogle(String companyName) throws IOException {
-        String urlStr = "https://newsapi.org/v2/everything?q=" + companyName + "%20&apiKey=" + apiKeyGoogle;
-
-        URL url = new URL(urlStr);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setRequestMethod("GET");
-        conn.connect();
-        int responseCode = conn.getResponseCode();
-
-        List<String[]> data = new ArrayList<String[]>();
-
-        if (responseCode != 200) {
-            throw new RuntimeException("HttpResponseCode: " + responseCode);
-        } else {
-            String jsonString = "";
-            Scanner scanner = new Scanner(url.openStream());
-            while (scanner.hasNext()) {
-                jsonString += scanner.nextLine();
-            }
-            scanner.close();
-            JSONObject jsonObj = new JSONObject(jsonString);
-            JSONArray jsonArray = jsonObj.getJSONArray("articles");
-
-            List<NewsArticle> newsList = new ArrayList<>();
-            for (int i = 0; i < jsonArray.length(); i++) {
-                JSONObject articleObj = jsonArray.getJSONObject(i);
-                String title = articleObj.getString("title");
-                String description = articleObj.getString("description");
-                String urlNews = articleObj.getString("url");
-                String dateStr = articleObj.getString("publishedAt").substring(0, 10);
-                LocalDate date = LocalDate.parse(dateStr);
-
-                Pattern pattern = Pattern.compile("\\b"+companyName+"\\b");
-                Matcher matcher = pattern.matcher(title);
-                Matcher matcher2 = pattern.matcher(description);
-
-
-                if (matcher.find() || matcher2.find()) {
-                    newsList.add(new NewsArticle(title, description, date, urlNews));
-                } else {
-                    System.out.println("Текст не содержит слово Компании.");
-                }
-            }
-
-            Map<LocalDate, List<String>> articlesByDate = new HashMap<>();
-            for (NewsArticle article : newsList) {
-                articlesByDate.computeIfAbsent(article.getDate(), k -> new ArrayList<>()).add(article.getTitle());
-            }
-
-            List<NewsArticle> sortedArticles = new ArrayList<>();
-            for (Map.Entry<LocalDate, List<String>> entry : articlesByDate.entrySet()) {
-                LocalDate date = entry.getKey();
-                List<String> titles = entry.getValue();
-                String title = String.join(", ", titles);
-                NewsArticle article = new NewsArticle();
-                article.setDate(date);
-                article.setTitle(title);
-                sortedArticles.add(article);
-            }
-
-            sortedArticles.sort(Comparator.comparing(NewsArticle::getDate).reversed());
-
-            for (int i = 0; i < sortedArticles.size(); i++) {
-                String[] news = new String[]{String.valueOf(sortedArticles.get(i).getDate()), sortedArticles.get(i).getTitle(), sortedArticles.get(i).getDescription(), sortedArticles.get(i).getUrlNews()};
-                data.add(news);
-            }
-
-            try {
-                CSVWriter writer = new CSVWriter(new FileWriter("src/main/resources/data/newsGoogle.csv"));
-                for (String[] news : data) {
-                    writer.writeNext(news);
-                }
-                writer.close();
-            } catch (Exception e) {
-                System.out.println("Ошибка записи данных: " + e.getMessage());
-            }
-        }
-        String[] newestNews = data.get(data.size()-1);
-        return "Свежая новость на:" + newestNews[0] + "\n\nНовость: \n" + newestNews[1] + "\n\nСсылка на новость: \n" + newestNews[3];
-    }
-
-
-
-}
+ */

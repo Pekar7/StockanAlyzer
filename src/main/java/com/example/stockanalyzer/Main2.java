@@ -15,7 +15,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Properties;
 
-
+//Черновик для тональности новости
 public class Main2 {
     public static void main(String[] args) throws Exception {
 
