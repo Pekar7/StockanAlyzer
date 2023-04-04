@@ -100,7 +100,6 @@ public class TelegramController extends TelegramLongPollingBot {
     @SneakyThrows
     private void getInfoFigi(long chatId, String figi, String url) {
         String message = stockService.getStockByTicker(figi);
-//        String news = stockService.getNewsFromGuardian(url);
         String news = stockService.getNewsFromGoogle(url);
         sendTextMessage(chatId, message+"\n"+news);
     }

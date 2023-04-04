@@ -10,8 +10,8 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @NoArgsConstructor
 public class NewsArticle {
-    public String title;
-    public String description;
-    public LocalDate date;
-    public String urlNews;
+    private String title;
+    private String description;
+    private LocalDate date;
+    private String urlNews;
 }

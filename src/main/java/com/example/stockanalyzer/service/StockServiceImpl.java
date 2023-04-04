@@ -15,9 +15,11 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -133,7 +135,7 @@ public class StockServiceImpl implements StockService {
                 String dateStr = articleObj.getString("publishedAt").substring(0, 10);
                 LocalDate date = LocalDate.parse(dateStr);
 
-                Pattern pattern = Pattern.compile("\\b"+companyName+"\\b");
+                Pattern pattern = Pattern.compile("\\b" + companyName + "\\b");
                 Matcher matcher = pattern.matcher(title);
                 Matcher matcher2 = pattern.matcher(description);
 
@@ -143,43 +145,47 @@ public class StockServiceImpl implements StockService {
                 }
             }
 
-            Map<LocalDate, List<String>> articlesByDate = new HashMap<>();
+            Map<LocalDate, List<NewsArticle>> articlesByDate = new HashMap<>();
             for (NewsArticle article : newsList) {
-                articlesByDate.computeIfAbsent(article.getDate(), k -> new ArrayList<>()).add(article.getTitle());
+                articlesByDate.computeIfAbsent(article.getDate(), k -> new ArrayList<>()).add(article);
             }
 
             List<NewsArticle> sortedArticles = new ArrayList<>();
-            for (Map.Entry<LocalDate, List<String>> entry : articlesByDate.entrySet()) {
+            for (Map.Entry<LocalDate, List<NewsArticle>> entry : articlesByDate.entrySet()) {
                 LocalDate date = entry.getKey();
-                List<String> titles = entry.getValue();
-                String title = String.join(", ", titles);
+                List<NewsArticle> titles = entry.getValue();
+                List<String> titlesList = new ArrayList<>();
+                List<String> urlList = new ArrayList<>();
+                for (NewsArticle article : titles) {
+                    titlesList.add(article.getTitle());
+                    urlList.add(article.getUrlNews());
+
+                }
+                String titleArticle = String.join("\n ", titlesList);
+                String urlArticle = String.join("\n; ", urlList);
                 NewsArticle article = new NewsArticle();
                 article.setDate(date);
-                article.setTitle(title);
+                article.setTitle(titleArticle);
+                article.setUrlNews(urlArticle);
                 sortedArticles.add(article);
             }
 
             sortedArticles.sort(Comparator.comparing(NewsArticle::getDate).reversed());
-
             for (int i = 0; i < sortedArticles.size(); i++) {
-                String[] news = new String[]{String.valueOf(sortedArticles.get(i).getDate()), sortedArticles.get(i).getTitle(), sortedArticles.get(i).getDescription(), sortedArticles.get(i).getUrlNews()};
-                data.add(news);
+                System.out.print("Title "+sortedArticles.get(i).getTitle() + " \nDate: " + sortedArticles.get(i).getDate() + "\nUrl: " + sortedArticles.get(i).getUrlNews());
+                System.out.println();
+                System.out.println();
             }
+            String title = sortedArticles.get(0).getTitle();
+            String urlNews = sortedArticles.get(0).getUrlNews();
+            LocalDate date = sortedArticles.get(0).getDate();
+            String dateString = date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"));
+            LocalDate parsedDate = LocalDate.parse(dateString, DateTimeFormatter.ofPattern("dd.MM.yyyy"));
+            String formattedDate = parsedDate.format(DateTimeFormatter.ofPattern("d MMMM yyyy 'года'", new Locale("ru")));
 
-            try {
-                CSVWriter writer = new CSVWriter(new FileWriter("src/main/resources/data/newsGoogle.csv"));
-                for (String[] news : data) {
-                    writer.writeNext(news);
-                }
-                writer.close();
-            } catch (Exception e) {
-                System.out.println("Ошибка записи данных: " + e.getMessage());
-            }
+            return "Последние новости компании " + companyName + ":\n\n\uD83D\uDDD3️ Дата: " + formattedDate + "\n\n\uD83D\uDCF0 Заголовки новостей: " + title + "\n\uD83D\uDD17Ссылка:  " + urlNews;
         }
-        String[] newestNews = data.get(data.size()-1);
-        return "Свежая новость на:" + newestNews[0] + "\n\nНовость: \n" + newestNews[1] + "\n\nСсылка на новость: \n" + newestNews[3];
     }
-
 }
 
 /*

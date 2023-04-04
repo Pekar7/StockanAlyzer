@@ -23,7 +23,7 @@ public class Main2 {
 
         List<Date> dates = new ArrayList<>();
         List<String> news = new ArrayList<>();
-        String csvFile = "src/main/resources/data/news.csv";
+        String csvFile = "src/main/resources/data/newsGoogle.csv";
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
         try {
             reader = new CSVReader(new FileReader(csvFile));

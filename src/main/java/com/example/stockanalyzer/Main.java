@@ -39,15 +39,34 @@ package com.example.stockanalyzer;
 //        System.out.println(sum);
 
 
+import com.opencsv.CSVParser;
 import com.opencsv.CSVReader;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVRecord;
+import org.apache.commons.math3.stat.regression.SimpleRegression;
+import weka.classifiers.Classifier;
+import weka.classifiers.Evaluation;
+import weka.classifiers.trees.J48;
+import weka.classifiers.trees.RandomForest;
+import weka.core.Attribute;
+import weka.core.DenseInstance;
+import weka.core.Instance;
+import weka.core.Instances;
+import weka.core.converters.CSVLoader;
+import weka.core.converters.ConverterUtils;
+import weka.filters.Filter;
+import weka.filters.unsupervised.attribute.Remove;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 //
 //        String csvFile = "src/main/resources/data/candle.csv";
@@ -105,11 +124,13 @@ import java.util.List;
 //
 //
 //
+
+//ЛИНЕЙНАЯ РИГРЕССИЯ
 //public class Main {
 //    public static void main(String[] args) {
 //        CSVReader reader;
 //
-//        List<Date> dat2es = new ArrayList<>();
+//        List<Date> dates = new ArrayList<>();
 //        List<Double> prices = new ArrayList<>();
 //        String csvFile = "src/main/resources/data/candle.csv";
 //        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
@@ -118,9 +139,9 @@ import java.util.List;
 //            String[] line;
 //
 //            while ((line = reader.readNext()) != null) {
-//                double value = Double.parseDouble(line[0]);
+//                double value = Double.parseDouble(line[1]);
 //                prices.add(value);
-//                Date date = dateFormat.parse(line[1]);
+//                Date date = dateFormat.parse(line[0]);
 //                dates.add(date);
 ////                System.out.println(line[0] + " " + line[1]);
 //            }
@@ -199,6 +220,90 @@ import java.util.List;
 //    }
 //}
 
+//
+//public class Main {
+//    public static void main(String[] args) {
+//        // Load data from CSV file
+//        Instances data = null;
+//        try {
+//            data = ConverterUtils.DataSource.read("src/main/resources/data/candle.csv");
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//
+//        data.setClassIndex(1);
+//        // Build decision tree model
+//        J48 tree = new J48();
+//        try {
+//            tree.buildClassifier(data);
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//
+//// Predict next month's price
+//        double[] values = new double[data.numAttributes()];
+//        values[0] = data.numInstances() + 1;
+//        double nextMonthPrice = 0.0;
+//        try {
+//            nextMonthPrice = tree.classifyInstance(new DenseInstance(1.0, values));
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//        System.out.println("Predicted price for next month: " + nextMonthPrice);
+//    }
+//}
+
 // TSLA ->  BBG000N9MNX3
 // AAPL -> BBG000B9XRY4
 // t.r1RjGdULtS1QIwg-k30CmN6RQA65yLseFYIckRXHgyQupL6Vcs0lvGLDsvhs1V3mGTDhKOJxwJ6HxbDyuygcuQ
+
+
+
+
+public class Main {
+    public static void main(String[] args) throws Exception {
+        try {
+            // Загрузка данных из CSV-файла
+            CSVLoader loader = new CSVLoader();
+            loader.setSource(new File("data.csv"));
+            Instances data = loader.getDataSet();
+
+            // Удаление ненужных атрибутов
+            Remove removeFilter = new Remove();
+            removeFilter.setAttributeIndices("1"); // Удаляем столбец с датами
+            removeFilter.setInputFormat(data);
+            data = Filter.useFilter(data, removeFilter);
+
+            // Установка целевой переменной
+            data.setClassIndex(data.numAttributes() - 1);
+
+            // Разбиение данных на обучающую и тестовую выборки
+            int trainSize = (int) Math.round(data.numInstances() * 0.8);
+            int testSize = data.numInstances() - trainSize;
+            Instances trainData = new Instances(data, 0, trainSize);
+            Instances testData = new Instances(data, trainSize, testSize);
+
+            // Обучение модели RandomForest
+            Classifier classifier = new RandomForest();
+            classifier.buildClassifier(trainData);
+
+            // Оценка качества модели на тестовой выборке
+            Evaluation evaluation = new Evaluation(trainData);
+            evaluation.evaluateModel(classifier, testData);
+            System.out.println(evaluation.toSummaryString());
+
+            // Пример использования модели для прогнозирования новых данных
+            double[] values = new double[data.numAttributes()];
+            values[0] = 10.0; // Цена закрытия акции
+            values[1] = 1.0; // Тональность новостей (0 - NEGATIVE, 1 - NEUTRAL, 2 - POSITIVE)
+            DenseInstance instance = new DenseInstance(1.0, values);
+            instance.setDataset(data);
+            double prediction = classifier.classifyInstance(instance);
+            System.out.println("Прогноз курса акций: " + prediction);
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
