@@ -137,10 +137,9 @@ public class StockServiceImpl implements StockService {
 
                 Pattern pattern = Pattern.compile("\\b" + companyName + "\\b");
                 Matcher matcher = pattern.matcher(title);
-                Matcher matcher2 = pattern.matcher(description);
 
 
-                if (matcher.find() || matcher2.find()) {
+                if (matcher.find()) {
                     newsList.add(new NewsArticle(title, description, date, urlNews));
                 }
             }
@@ -159,10 +158,9 @@ public class StockServiceImpl implements StockService {
                 for (NewsArticle article : titles) {
                     titlesList.add(article.getTitle());
                     urlList.add(article.getUrlNews());
-
                 }
                 String titleArticle = String.join("\n ", titlesList);
-                String urlArticle = String.join("\n; ", urlList);
+                String urlArticle = String.join("\n ", urlList);
                 NewsArticle article = new NewsArticle();
                 article.setDate(date);
                 article.setTitle(titleArticle);
@@ -171,19 +169,28 @@ public class StockServiceImpl implements StockService {
             }
 
             sortedArticles.sort(Comparator.comparing(NewsArticle::getDate).reversed());
-            for (int i = 0; i < sortedArticles.size(); i++) {
-                System.out.print("Title "+sortedArticles.get(i).getTitle() + " \nDate: " + sortedArticles.get(i).getDate() + "\nUrl: " + sortedArticles.get(i).getUrlNews());
-                System.out.println();
-                System.out.println();
-            }
-            String title = sortedArticles.get(0).getTitle();
-            String urlNews = sortedArticles.get(0).getUrlNews();
+            String[] titles = sortedArticles.get(0).getTitle().split("\n");
+            String[] urlNews = sortedArticles.get(0).getUrlNews().split("\n");
+
             LocalDate date = sortedArticles.get(0).getDate();
             String dateString = date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"));
             LocalDate parsedDate = LocalDate.parse(dateString, DateTimeFormatter.ofPattern("dd.MM.yyyy"));
             String formattedDate = parsedDate.format(DateTimeFormatter.ofPattern("d MMMM yyyy 'года'", new Locale("ru")));
 
-            return "Последние новости компании " + companyName + ":\n\n\uD83D\uDDD3️ Дата: " + formattedDate + "\n\n\uD83D\uDCF0 Заголовки новостей: " + title + "\n\uD83D\uDD17Ссылка:  " + urlNews;
+            List<String> message = new ArrayList<>();
+            for (int i = 0; i < titles.length; i++) {
+                String title = titles[i];
+                String urlArticle = urlNews[i];
+
+                message.add("\uD83D\uDCF0 " + title + ":\n" +
+                        "\uD83D\uDD17 " + urlArticle + "\n\n");
+            }
+
+            String sendMes = "";
+            for (int i = 0; i < message.size(); i++) {
+                sendMes += message.get(i);
+            }
+            return "Последние новости компании " + companyName + "\uD83D\uDDD3️ " + formattedDate + ":\n" + sendMes;
         }
     }
 }
