@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Data
 @AllArgsConstructor
@@ -12,6 +13,6 @@ import java.time.LocalDate;
 public class NewsArticle {
     private String title;
     private String description;
-    private LocalDate date;
+    private LocalDateTime date;
     private String urlNews;
 }

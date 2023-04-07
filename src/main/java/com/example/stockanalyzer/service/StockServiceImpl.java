@@ -10,22 +10,24 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import ru.tinkoff.piapi.contract.v1.*;
 import ru.tinkoff.piapi.core.InvestApi;
+
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 
 @Service
 public class StockServiceImpl implements StockService {
 
-    private static final long CANDLE_PERIOD = 6;
+    private static final long CANDLE_PERIOD = 1;
     @Value("${news.token}")
     String apiKey;
 
@@ -48,10 +50,16 @@ public class StockServiceImpl implements StockService {
     public String getStockByTicker(String figi) {
         Instrument instrument = api.getInstrumentsService().getInstrumentByFigi(figi).join();
         Double price = getPriceStock(figi);
-        return "Акция компании: " + instrument.getName() + "\nТикер: " + instrument.getTicker() + " Figi: " + instrument.getFigi()
-                + "\nЦена акции: " + price
-                + " " + instrument.getCurrency() + "\n";
-
+        getCandleByFigi(figi);
+        if ("Apple".equals(instrument.getName())) {
+            return "\uD83C\uDF4F <b>Компания: " + instrument.getName() + "\n\uD83D\uDCB0 Цена: " + price + " $</b>\n";
+        } else if ("Amazon.com".equals(instrument.getName())) {
+            return "\uD83D\uDECD <b>Компания: " + instrument.getName() + "\n\uD83D\uDCB0 Цена: " + price + " $</b>\n";
+        } else if ("Tesla Motors".equals(instrument.getName())) {
+            return "\uD83D\uDE98 <b>Компания: " + instrument.getName() + "\n\uD83D\uDCB0 Цена: " + price + " $</b>\n";
+        } else {
+            return "\uD83E\uDD16 <b>Компания: " + instrument.getName() + "\n\uD83D\uDCB0 Цена: " + price + " $</b>\n";
+        }
     }
 
     //Получить свечи по figi
@@ -60,14 +68,16 @@ public class StockServiceImpl implements StockService {
         Instant now = Instant.now();
         LocalDateTime fiveMonthsAgo = LocalDateTime.now().minusMonths(CANDLE_PERIOD);
         Instant instantFiveMonthsAgo = fiveMonthsAgo.atZone(ZoneId.systemDefault()).toInstant();
-        List<HistoricCandle> historicCandleList = api.getMarketDataService().getCandles(figi, instantFiveMonthsAgo, now, CandleInterval.CANDLE_INTERVAL_DAY).join(); //месяц
+        List<HistoricCandle> historicCandleList = api.getMarketDataService().getCandles(figi, instantFiveMonthsAgo, now, CandleInterval.CANDLE_INTERVAL_4_HOUR).join(); //месяц
 
         List<Candle> candles = new ArrayList();
-        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
         for (int i = 0; i < historicCandleList.size(); i++) {
+            Instant instant = Instant.ofEpochSecond(historicCandleList.get(i).getTime().getSeconds());
+            LocalDateTime localDateTime = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
             candles.add(
                     new Candle(
-                            simpleDateFormat.format(new Date(historicCandleList.get(i).getTime().getSeconds() * 1000)),
+                            formatter.format(localDateTime),
                             historicCandleList.get(i).getClose().getUnits() + historicCandleList.get(i).getClose().getNano() / Math.pow(10, 9),
                             historicCandleList.get(i).getVolume(),
                             historicCandleList.get(i).getOpen().getUnits() + historicCandleList.get(i).getClose().getNano() / Math.pow(10, 9),
@@ -80,11 +90,11 @@ public class StockServiceImpl implements StockService {
         for (int i = 0; i < candles.size(); i++) {
             data.add(new String[]{
                     String.valueOf(candles.get(i).getSimpleDateFormat()),
-                    String.valueOf(candles.get(i).getClose()),
-                    String.valueOf(candles.get(i).getValue()),
                     String.valueOf(candles.get(i).getOpen()),
                     String.valueOf(candles.get(i).getHigh()),
                     String.valueOf(candles.get(i).getLow()),
+                    String.valueOf(candles.get(i).getClose()),
+                    String.valueOf(candles.get(i).getValue())
             });
         }
         File file = new File("src/main/resources/data/candle.csv");
@@ -103,7 +113,7 @@ public class StockServiceImpl implements StockService {
 
     //Google News
     @Override
-    public String getNewsFromGoogle(String companyName) throws IOException {
+    public List<NewsArticle> getNewsFromGoogle(String companyName) throws IOException, ParseException {
         String urlStr = "https://newsapi.org/v2/everything?q=" + companyName + "%20&apiKey=" + apiKeyGoogle;
 
         URL url = new URL(urlStr);
@@ -112,7 +122,6 @@ public class StockServiceImpl implements StockService {
         conn.connect();
         int responseCode = conn.getResponseCode();
 
-        List<String[]> data = new ArrayList<String[]>();
 
         if (responseCode != 200) {
             throw new RuntimeException("HttpResponseCode: " + responseCode);
@@ -127,70 +136,85 @@ public class StockServiceImpl implements StockService {
             JSONArray jsonArray = jsonObj.getJSONArray("articles");
 
             List<NewsArticle> newsList = new ArrayList<>();
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
             for (int i = 0; i < jsonArray.length(); i++) {
                 JSONObject articleObj = jsonArray.getJSONObject(i);
                 String title = articleObj.getString("title");
                 String description = articleObj.getString("description");
                 String urlNews = articleObj.getString("url");
-                String dateStr = articleObj.getString("publishedAt").substring(0, 10);
-                LocalDate date = LocalDate.parse(dateStr);
+                String dateTimeStr = articleObj.getString("publishedAt").replace("T", " ").substring(0, 19);
+                LocalDateTime dateTime = LocalDateTime.parse(dateTimeStr, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
 
                 Pattern pattern = Pattern.compile("\\b" + companyName + "\\b");
                 Matcher matcher = pattern.matcher(title);
 
-
                 if (matcher.find()) {
-                    newsList.add(new NewsArticle(title, description, date, urlNews));
+                    newsList.add(new NewsArticle(title, description, dateTime, urlNews));
                 }
             }
 
-            Map<LocalDate, List<NewsArticle>> articlesByDate = new HashMap<>();
-            for (NewsArticle article : newsList) {
-                articlesByDate.computeIfAbsent(article.getDate(), k -> new ArrayList<>()).add(article);
-            }
-
-            List<NewsArticle> sortedArticles = new ArrayList<>();
-            for (Map.Entry<LocalDate, List<NewsArticle>> entry : articlesByDate.entrySet()) {
-                LocalDate date = entry.getKey();
-                List<NewsArticle> titles = entry.getValue();
-                List<String> titlesList = new ArrayList<>();
-                List<String> urlList = new ArrayList<>();
-                for (NewsArticle article : titles) {
-                    titlesList.add(article.getTitle());
-                    urlList.add(article.getUrlNews());
+            Comparator<NewsArticle> dateComparator = new Comparator<NewsArticle>() {
+                @Override
+                public int compare(NewsArticle o1, NewsArticle o2) {
+                    return o1.getDate().compareTo(o2.getDate());
                 }
-                String titleArticle = String.join("\n ", titlesList);
-                String urlArticle = String.join("\n ", urlList);
-                NewsArticle article = new NewsArticle();
-                article.setDate(date);
-                article.setTitle(titleArticle);
-                article.setUrlNews(urlArticle);
-                sortedArticles.add(article);
+            };
+
+            newsList.sort(dateComparator);
+
+            List<String[]> data = new ArrayList<String[]>();
+            for (int i = 0; i < newsList.size(); i++) {
+                LocalDateTime dateTime = newsList.get(i).getDate();
+                String formattedDate = dateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+                data.add(new String[]{
+                        formattedDate,
+                        String.valueOf(newsList.get(i).getTitle()),
+                        String.valueOf(newsList.get(i).getDescription())
+                });
             }
 
-            sortedArticles.sort(Comparator.comparing(NewsArticle::getDate).reversed());
-            String[] titles = sortedArticles.get(0).getTitle().split("\n");
-            String[] urlNews = sortedArticles.get(0).getUrlNews().split("\n");
 
-            LocalDate date = sortedArticles.get(0).getDate();
-            String dateString = date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"));
-            LocalDate parsedDate = LocalDate.parse(dateString, DateTimeFormatter.ofPattern("dd.MM.yyyy"));
-            String formattedDate = parsedDate.format(DateTimeFormatter.ofPattern("d MMMM yyyy 'года'", new Locale("ru")));
+            File file = new File("src/main/resources/data/news.csv");
+            try {
+                FileWriter outputfile = new FileWriter(file);
+                CSVWriter writer = new CSVWriter(outputfile);
+                writer.writeAll(data);
+                writer.close();
 
-            List<String> message = new ArrayList<>();
-            for (int i = 0; i < titles.length; i++) {
-                String title = titles[i];
-                String urlArticle = urlNews[i];
-
-                message.add("\uD83D\uDCF0 " + title + ":\n" +
-                        "\uD83D\uDD17 " + urlArticle + "\n\n");
+            } catch (Exception e) {
+                e.printStackTrace();
             }
 
-            String sendMes = "";
-            for (int i = 0; i < message.size(); i++) {
-                sendMes += message.get(i);
-            }
-            return "Последние новости компании " + companyName + "\uD83D\uDDD3️ " + formattedDate + ":\n" + sendMes;
+//            for (int i = 0; i < newsList.size(); i++) {
+//                System.out.print("\n\nДата: " + newsList.get(i).getDate() + " \nTitle: " + newsList.get(i).getTitle() + " \nUrl: " + newsList.get(i).getUrlNews());
+//            }
+//
+//            Map<LocalDateTime, List<NewsArticle>> articlesByDate = new HashMap<>();
+//            for (NewsArticle article : newsList) {
+//                articlesByDate.computeIfAbsent(article.getDate(), k -> new ArrayList<>()).add(article);
+//            }
+//
+//            List<NewsArticle> sortedArticles = new ArrayList<>();
+//            for (Map.Entry<LocalDateTime, List<NewsArticle>> entry : articlesByDate.entrySet()) {
+//                LocalDateTime date = entry.getKey();
+//                List<NewsArticle> titles = entry.getValue();
+//                List<String> titlesList = new ArrayList<>();
+//                List<String> urlList = new ArrayList<>();
+//                for (NewsArticle article : titles) {
+//                    titlesList.add(article.getTitle());
+//                    urlList.add(article.getUrlNews());
+//                }
+//                String titleArticle = String.join("\n ", titlesList);
+//                String urlArticle = String.join("\n ", urlList);
+//                NewsArticle article = new NewsArticle();
+//                article.setDate(date);
+//                article.setTitle(titleArticle);
+//                article.setUrlNews(urlArticle);
+//                sortedArticles.add(article);
+//            }
+
+//            sortedArticles.sort(Comparator.comparing(NewsArticle::getDate).reversed());
+            return newsList;
         }
     }
 }

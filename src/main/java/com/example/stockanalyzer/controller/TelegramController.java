@@ -1,12 +1,14 @@
 package com.example.stockanalyzer.controller;
 
 import com.example.stockanalyzer.config.ApiConfig;
+import com.example.stockanalyzer.model.NewsArticle;
 import com.example.stockanalyzer.service.StockService;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
+import org.telegram.telegrambots.meta.api.methods.ParseMode;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
@@ -17,8 +19,15 @@ import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScope
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
 @Slf4j
@@ -26,6 +35,11 @@ import java.util.List;
 public class TelegramController extends TelegramLongPollingBot {
     final ApiConfig config;
     final StockService stockService;
+
+    private final String APPLE = "Apple";
+    private final String TESLA = "Tesla";
+    private final String MICROSOFT = "Microsoft";
+    private final String AMAZON = "Amazon";
 
     static final String HELP_TEXT = "Этот бот обрабатывает и выдает данные по акциям через Тикер.\nТикер — это краткое название финансового инструмента на бирже\n" +
             "Тикер можно найти тут: https://clck.ru/32ViCF\n\n";
@@ -70,51 +84,54 @@ public class TelegramController extends TelegramLongPollingBot {
             Message message = callbackQuery.getMessage();
             switch (callbackData) {
                 case "BBG000B9XRY4": //apple
-//                    String appleNewsGuardian = "https://content.guardianapis.com/search?q=Apple%20Inc&section=technology&page-size=20&api-key=";
-                    String appleNews = "Apple";
-                    getInfoFigi(message.getChatId(), "BBG000B9XRY4", appleNews);
-                    getBrownModel(message.getChatId(), "BBG000B9XRY4");
+                    getInfoFigi(message.getChatId(), "BBG000B9XRY4", APPLE);
                     break;
                 case "BBG000BVPV84": //amazon
-//                    String amazonGuardian = "https://content.guardianapis.com/search?q=Amazon%20AND%20company&page-size=20&api-key=";
-                    String amazonNews = "Amazon";
-                    getInfoFigi(message.getChatId(), "BBG000BVPV84", amazonNews);
-                    getBrownModel(message.getChatId(), "BBG000BVPV84");
+                    getInfoFigi(message.getChatId(), "BBG000BVPV84", AMAZON);
                     break;
                 case "BBG000N9MNX3": //tesla
-//                    String teslaNewsGuardian = "https://content.guardianapis.com/search?q=Tesla%20motors&page-size=20&api-key=";
-                    String teslaNews = "Tesla";
-                    getInfoFigi(message.getChatId(), "BBG000N9MNX3", teslaNews);
-                    getBrownModel(message.getChatId(), "BBG000N9MNX3");
+                    getInfoFigi(message.getChatId(), "BBG000N9MNX3", TESLA);
                     break;
                 case "BBG000BPH459": //microsoft
-//                    String microsoftGuardian = "https://content.guardianapis.com/search?q=Microsoft%20&page-size=20&api-key=";
-                    String microsoftNews = "Microsoft";
-                    getInfoFigi(message.getChatId(), "BBG000BPH459", microsoftNews);
-                    getBrownModel(message.getChatId(), "BBG000BPH459");
+                    getInfoFigi(message.getChatId(), "BBG000BPH459", MICROSOFT);
                     break;
             }
         }
     }
 
     @SneakyThrows
-    private void getInfoFigi(long chatId, String figi, String url) {
-        String message = stockService.getStockByTicker(figi);
-        String news = stockService.getNewsFromGoogle(url);
-        sendTextMessage(chatId, message+"\n"+news);
+    private void getInfoFigi(long chatId, String figi, String companyName) {
+        String stockInformation = stockService.getStockByTicker(figi); // получение цены акции и ифнормации
+        List<NewsArticle> news = stockService.getNewsFromGoogle(companyName); //сбор всех новостей и отправка в csv файл
+        String newsInformation = getLastNews(news, companyName); //получение новостей
+        sendTextMessage(chatId, stockInformation+"\n"+newsInformation);
+        sendYesNoKeyboard(chatId);
     }
 
-    private void getBrownModel(long chatId, String figi) {
-        stockService.getCandleByFigi(figi);
-//        Double priceBrown = stockService.getAnalysisBrown();
-//        Double price = stockService.getPriceStock(figi);
-//        if (priceBrown > price) {
-//            sendTextMessage(chatId, "Модель Брауна прогнозирует рост цены на следующий месяц \u2714");
-//        } else if (priceBrown < price) {
-//            sendTextMessage(chatId, "Модель Брауна прогнозирует падание цены на следующий месяц \u274C");
-//        } else {
-//            sendTextMessage(chatId, "Модель Брауна прогнозирует стагнацию цены на следующий месяц");
-//        }
+    private String getLastNews(List<NewsArticle> news, String companyName) {
+        String[] titles = news.get(0).getTitle().split("\n");
+        String[] urlNews = news.get(0).getUrlNews().split("\n");
+
+        LocalDateTime date = news.get(0).getDate();
+        String dateString = date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"));
+        LocalDate parsedDate = LocalDate.parse(dateString, DateTimeFormatter.ofPattern("dd.MM.yyyy"));
+        String formattedDate = parsedDate.format(DateTimeFormatter.ofPattern("d MMMM yyyy 'года'", new Locale("ru")));
+
+        List<String> message = new ArrayList<>();
+        for (int i = 0; i < titles.length; i++) {
+            String title = titles[i];
+            String urlArticle = urlNews[i];
+
+            message.add("\uD83D\uDCA1 " + title + ". \n" +
+                    "\uD83D\uDD17 <a href='" + urlArticle.trim() + "'>" + "Ссылка" + "</a> \n\n");
+        }
+
+        String text = "";
+        for (int i = 0; i < message.size(); i++) {
+            text += message.get(i);
+        }
+
+        return "<b>⚡ Последние новости от компании " + companyName + " было " + formattedDate + ":</b>\n\n" + text;
     }
 
     private void sendYesNoKeyboard(Long chatId) {
@@ -164,6 +181,10 @@ public class TelegramController extends TelegramLongPollingBot {
         SendMessage message = new SendMessage();
         message.setChatId(chatId.toString());
         message.setText(text);
+        message.enableHtml(true);
+        message.setParseMode(ParseMode.HTML);
+        message.disableWebPagePreview();
+        message.disableNotification();
         sendTextMessage(message);
     }
 
@@ -176,8 +197,8 @@ public class TelegramController extends TelegramLongPollingBot {
     }
 
     private void startCommandReceived(long chatId, String firstName) {
-        String answer = "Привет, " + firstName + "! \nЯ бот @MisisServiceBot, который умеет анализировать и погнозировать акции технических компаний, таких как:" +
-                " Apple, Tesla Motors, Microsoft, Amazon.";
+        String answer = "Привет, " + firstName + "! \uD83D\uDE42 \nЯ бот @MisisServiceBot который умеет анализировать и погнозировать курс акции технических компаний, таких как:" +
+                "\n- Apple \uD83C\uDF4F  \n- Tesla Motors \uD83D\uDE98 \n- Microsoft \uD83E\uDD16 \n- Amazon \uD83D\uDECD";
         sendMessage(chatId, answer);
     }
 
@@ -193,3 +214,17 @@ public class TelegramController extends TelegramLongPollingBot {
         }
     }
 }
+
+/*
+Привет, UserBot!
+Я - NirMisisBot, бот от @MisisServiceBot. Я специализируюсь на анализе и прогнозировании акций технических компаний, таких как Apple, Tesla, Microsoft и Amazon.
+
+Для получения информации по конкретной компании, выберите её из списка ниже:
+- Apple
+- Tesla
+- Microsoft
+- Amazon
+
+Просто напишите название компании, и я выдам вам последние новости и цену акций. Давайте начнем! 🚀
+
+ */
