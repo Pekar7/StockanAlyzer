@@ -2,16 +2,15 @@ package com.example.stockanalyzer.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.Value;
 
 import java.time.LocalDateTime;
 
 @Data
 @AllArgsConstructor
-@NoArgsConstructor
-public class NewsArticle {
-    private String title;
-    private String description;
+@Value
+public class SentimetModel {
     private LocalDateTime date;
-    private String urlNews;
+    private String analyseText;
+    private Integer rating;
 }

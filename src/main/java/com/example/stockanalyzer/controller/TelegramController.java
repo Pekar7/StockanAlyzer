@@ -5,15 +5,14 @@ import com.example.stockanalyzer.model.NewsArticle;
 import com.example.stockanalyzer.service.StockService;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.ParseMode;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
-import org.telegram.telegrambots.meta.api.objects.Message;
-import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.*;
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeDefault;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
@@ -26,8 +25,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 
 @Slf4j
@@ -43,6 +40,13 @@ public class TelegramController extends TelegramLongPollingBot {
 
     static final String HELP_TEXT = "Этот бот обрабатывает и выдает данные по акциям через Тикер.\nТикер — это краткое название финансового инструмента на бирже\n" +
             "Тикер можно найти тут: https://clck.ru/32ViCF\n\n";
+
+
+    private static final String API_KEY = "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";
+    private static final String ENDPOINT = "https://api.openai.com/v1/";
+
+    private OkHttpClient client = new OkHttpClient();
+    private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
 
 
     @Override
@@ -105,6 +109,7 @@ public class TelegramController extends TelegramLongPollingBot {
         List<NewsArticle> news = stockService.getNewsFromGoogle(companyName); //сбор всех новостей и отправка в csv файл
         String newsInformation = getLastNews(news, companyName); //получение новостей
         sendTextMessage(chatId, stockInformation+"\n"+newsInformation);
+        stockService.getCandleByFigi(figi);
         sendYesNoKeyboard(chatId);
     }
 
