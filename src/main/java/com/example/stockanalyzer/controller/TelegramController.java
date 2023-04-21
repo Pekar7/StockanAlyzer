@@ -114,10 +114,10 @@ public class TelegramController extends TelegramLongPollingBot {
     }
 
     private String getLastNews(List<NewsArticle> news, String companyName) {
-        String[] titles = news.get(0).getTitle().split("\n");
-        String[] urlNews = news.get(0).getUrlNews().split("\n");
+        String[] titles = news.get(news.size()-1).getTitle().split("\n");
+        String[] urlNews = news.get(news.size()-1).getUrlNews().split("\n");
 
-        LocalDateTime date = news.get(0).getDate();
+        LocalDateTime date = news.get(news.size()-1).getDate();
         String dateString = date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"));
         LocalDate parsedDate = LocalDate.parse(dateString, DateTimeFormatter.ofPattern("dd.MM.yyyy"));
         String formattedDate = parsedDate.format(DateTimeFormatter.ofPattern("d MMMM yyyy 'года'", new Locale("ru")));
