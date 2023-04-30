@@ -11,6 +11,7 @@ import java.util.List;
 public interface StockService {
     String getStockByTicker(String ticker);
     Double getPriceStock(String figi);
-    List<Candle> getCandleByFigi(String figi);
-    List<NewsArticle> getNewsFromGoogle(String newUrl) throws IOException, ParseException;
+    List<Candle> getCandleByFigi(String figi); //
+    List<Double> getLineRegression(String figi); // Линейная ригрессия
+    List<NewsArticle> getNewsFromGoogle(String companyName) throws IOException, ParseException;
 }

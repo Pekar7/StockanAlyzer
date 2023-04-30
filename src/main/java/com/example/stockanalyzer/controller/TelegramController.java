@@ -7,6 +7,7 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.ParseMode;
@@ -107,13 +108,28 @@ public class TelegramController extends TelegramLongPollingBot {
     private void getInfoFigi(long chatId, String figi, String companyName) {
         String stockInformation = stockService.getStockByTicker(figi); // получение цены акции и ифнормации
         List<NewsArticle> news = stockService.getNewsFromGoogle(companyName); //сбор всех новостей и отправка в csv файл
-        String newsInformation = getLastNews(news, companyName); //получение новостей
+
+        String newsInformation = getLastNewsInformation(news, companyName); //получение новостей
+        sendTextMessage(chatId, stockInformation+"\n"+newsInformation); // отрпавка цены и новости
+
+        List<Double> param = stockService.getLineRegression(figi); // линейная ригрессия
+        sendTextMessage(chatId, "Прогнозируемая цена компании " + companyName + "на следующий месяц: " + param.get(3).toString() + "$ " +
+                "\nПараметры: \nSlope (наклон) значение, которое показывает, насколько быстро растет или падает: " + param.get(0) +
+                "\nIntercept - это значение, которое показывает, где линия регрессии пересекает ось: " + param.get(1) +
+                "\nR-squared (коэффициент детерминации): " + param.get(2)
+        );
+
         sendTextMessage(chatId, stockInformation+"\n"+newsInformation);
-        stockService.getCandleByFigi(figi);
+
+        stockService.getCandleByFigi(figi); // сбор данных свечей
         sendYesNoKeyboard(chatId);
     }
 
-    private String getLastNews(List<NewsArticle> news, String companyName) {
+    private void sendPredictInformation(long chatId, Double predictPrice) {
+        String text = "Прогнозируемая цена на следующий месяц: " + predictPrice.toString();
+    }
+
+    private String getLastNewsInformation(List<NewsArticle> news, String companyName) {
         String[] titles = news.get(news.size()-1).getTitle().split("\n");
         String[] urlNews = news.get(news.size()-1).getUrlNews().split("\n");
 
@@ -219,17 +235,3 @@ public class TelegramController extends TelegramLongPollingBot {
         }
     }
 }
-
-/*
-Привет, UserBot!
-Я - NirMisisBot, бот от @MisisServiceBot. Я специализируюсь на анализе и прогнозировании акций технических компаний, таких как Apple, Tesla, Microsoft и Amazon.
-
-Для получения информации по конкретной компании, выберите её из списка ниже:
-- Apple
-- Tesla
-- Microsoft
-- Amazon
-
-Просто напишите название компании, и я выдам вам последние новости и цену акций. Давайте начнем! 🚀
-
- */
